@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 class JobState(str, Enum):
@@ -26,7 +26,7 @@ class JobMetadata:
     input_files: List[str] = field(default_factory=list)
     csv_path: Optional[str] = None
     pages: Optional[int] = None
-    stats: Dict[str, int] = field(default_factory=dict)
+    stats: Dict[str, Union[int, float, None]] = field(default_factory=dict)
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
@@ -46,9 +46,28 @@ class JobMetadata:
             input_files=[str(item) for item in data.get("input_files", [])],
             csv_path=data.get("csv_path"),
             pages=data.get("pages"),
-            stats={k: int(v) for k, v in dict(data.get("stats", {})).items()},
+            stats=_coerce_stats(dict(data.get("stats", {}))),
             error=data.get("error"),
         )
+
+
+def _coerce_stats(raw: Dict[str, object]) -> Dict[str, Union[int, float, None]]:
+    stats: Dict[str, Union[int, float, None]] = {}
+    for key, value in raw.items():
+        if value is None:
+            stats[key] = None
+            continue
+        try:
+            if key == "ocr_conf_mean":
+                stats[key] = float(value)
+            else:
+                stats[key] = int(value)
+        except (TypeError, ValueError):
+            try:
+                stats[key] = float(value)
+            except (TypeError, ValueError):
+                continue
+    return stats
 
 
 class JobStorage:

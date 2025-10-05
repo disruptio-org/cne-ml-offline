@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple, Union
 
 from .types import CandidateRow
 
@@ -96,9 +96,18 @@ def validate_rows(rows: Iterable[CandidateRow]) -> List[CandidateRow]:
     return validated
 
 
-def summarise_validation(rows: Iterable[CandidateRow]) -> Dict[str, int]:
-    summary = {"rows_total": 0, "rows_ok": 0, "rows_warn": 0, "rows_err": 0}
+def summarise_validation(rows: Iterable[CandidateRow]) -> Dict[str, Union[int, float, None]]:
+    summary: Dict[str, Union[int, float, None]] = {
+        "rows_total": 0,
+        "rows_ok": 0,
+        "rows_warn": 0,
+        "rows_err": 0,
+        "ocr_conf_mean": None,
+    }
     severity = {_VALIDATION_OK: 0, _VALIDATION_WARN: 1, _VALIDATION_ERR: 2}
+    confidence_scale = {0: 1.0, 1: 0.7, 2: 0.3}
+    confidence_total = 0.0
+    confidence_count = 0
     for row in rows:
         summary["rows_total"] += 1
         worst = 0
@@ -110,4 +119,8 @@ def summarise_validation(rows: Iterable[CandidateRow]) -> Dict[str, int]:
             summary["rows_warn"] += 1
         else:
             summary["rows_err"] += 1
+        confidence_total += confidence_scale.get(worst, 0.0)
+        confidence_count += 1
+    if confidence_count:
+        summary["ocr_conf_mean"] = round(confidence_total / confidence_count, 4)
     return summary
