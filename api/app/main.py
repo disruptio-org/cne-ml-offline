@@ -7,6 +7,7 @@ from typing import Callable
 
 from worker.src.storage import JobStorage
 
+from .routes import models as models_routes
 from .schemas.jobs import JobState, JobStatus
 from .services import build_job_stats
 
@@ -32,6 +33,9 @@ def get_storage() -> JobStorage:
 
 if FastAPI is not None:
     app = FastAPI(title="CNE Offline API")
+
+    if models_routes.router is not None:
+        app.include_router(models_routes.router)
 
     @app.get("/api/jobs/{job_id}", response_model=JobStatus)
     async def read_job(job_id: str, storage: JobStorage = Depends(get_storage)) -> JobStatus:
