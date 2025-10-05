@@ -55,4 +55,5 @@ def process_job(
         rows_warn=summary["rows_warn"],
         rows_err=summary["rows_err"],
         pages_processed=len(pages),
+        ocr_conf_mean=summary.get("ocr_conf_mean"),
     )

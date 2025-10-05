@@ -52,3 +52,4 @@ class PipelineResult:
     rows_warn: int
     rows_err: int
     pages_processed: int
+    ocr_conf_mean: Optional[float] = None

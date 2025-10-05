@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable, Tuple, Union
 
 from .types import CandidateRow
 
@@ -25,7 +25,7 @@ CSV_COLUMNS = [
 def write_outputs(
     job_id: str,
     rows: Iterable[CandidateRow],
-    summary: Dict[str, int],
+    summary: Dict[str, Union[int, float, None]],
     base_dir: Path,
 ) -> Tuple[Path, Path]:
     processed_dir = (base_dir / "processed" / job_id).resolve()
@@ -48,12 +48,14 @@ def write_outputs(
                 row.INDEPENDENTE or "",
             ])
     meta_path = processed_dir / "meta.json"
-    payload = {
+    payload: Dict[str, Union[int, float, None]] = {
         "job_id": job_id,
         "rows_total": summary.get("rows_total", 0),
         "rows_ok": summary.get("rows_ok", 0),
         "rows_warn": summary.get("rows_warn", 0),
         "rows_err": summary.get("rows_err", 0),
     }
+    if "ocr_conf_mean" in summary:
+        payload["ocr_conf_mean"] = summary.get("ocr_conf_mean")
     meta_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return csv_path, meta_path
