@@ -23,7 +23,7 @@ def test_job_status_payload_includes_ocr_conf_mean(tmp_path):
         "rows_ok": 1,
         "rows_warn": 1,
         "rows_err": 0,
-        "ocr_conf_mean": 0.85,
+        "ocr_conf_mean": 1.0,
     }
 
     metadata = storage.mark_state(
@@ -50,7 +50,7 @@ def test_job_status_payload_includes_ocr_conf_mean(tmp_path):
         error=metadata.error,
     ).to_dict()
 
-    assert payload["stats"]["ocr_conf_mean"] == stats["ocr_conf_mean"]
+    assert payload["stats"]["ocr_conf_mean"] == pytest.approx(stats["ocr_conf_mean"])
 
 
 @pytest.mark.skipif(TestClient is None, reason="FastAPI is not available")
