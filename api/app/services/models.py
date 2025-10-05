@@ -86,7 +86,7 @@ def get_history(
 
     normalised: List[ModelInfo] = [_normalise_record(record) for record in registry]
     registry_helper = ModelRegistry(normalised)
-    paginated = registry_helper.paginate(page=page, size=size)
+    paginated = registry_helper.get_history(page=page, size=size)
     return ModelHistory(
         page=paginated.page,
         size=paginated.size,

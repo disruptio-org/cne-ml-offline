@@ -23,9 +23,7 @@ class ModelRegistry(Generic[T]):
     def __init__(self, records: Sequence[T] | None = None) -> None:
         self._records: List[T] = list(records or [])
 
-    def paginate(self, *, page: int = 1, size: int = 20) -> RegistryPage[T]:
-        """Return a paginated slice of the registry."""
-
+    def _slice(self, *, page: int, size: int) -> RegistryPage[T]:
         if page < 1:
             raise ValueError("page must be greater than or equal to 1")
         if size < 1:
@@ -36,6 +34,16 @@ class ModelRegistry(Generic[T]):
         end = start + size
         items = self._records[start:end]
         return RegistryPage(items=items, total=total, page=page, size=size)
+
+    def paginate(self, *, page: int = 1, size: int = 20) -> RegistryPage[T]:
+        """Return a paginated slice of the registry."""
+
+        return self._slice(page=page, size=size)
+
+    def get_history(self, *, page: int = 1, size: int = 20) -> RegistryPage[T]:
+        """Return a historical slice of records with pagination metadata."""
+
+        return self._slice(page=page, size=size)
 
     def __len__(self) -> int:  # pragma: no cover - convenience helper
         return len(self._records)
