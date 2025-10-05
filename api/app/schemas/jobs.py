@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 class JobState(str, Enum):
@@ -23,8 +23,8 @@ class JobStats:
     rows_err: Optional[int] = None
     ocr_conf_mean: Optional[float] = None
 
-    def to_dict(self) -> Dict[str, Optional[float]]:
-        payload: Dict[str, Optional[float]] = asdict(self)
+    def to_dict(self) -> Dict[str, Optional[Union[int, float]]]:
+        payload: Dict[str, Optional[Union[int, float]]] = asdict(self)
         return {key: value for key, value in payload.items() if value is not None}
 
 
