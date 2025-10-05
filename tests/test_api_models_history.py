@@ -73,11 +73,11 @@ def test_history_route_uses_pagination():
     ]
 
 
-def test_model_registry_paginate_returns_metadata():
+def test_model_registry_get_history_returns_metadata():
     records = list(range(25))
     registry = ModelRegistry(records)
 
-    page = registry.paginate(page=2, size=10)
+    page = registry.get_history(page=2, size=10)
 
     assert page.page == 2
     assert page.size == 10
