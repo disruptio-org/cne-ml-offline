@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Mapping, Sequence, Union
 
 from ..schemas.models import ModelHistory, ModelInfo
+from ml.model_registry import ModelRegistry
 
 RegistryRecord = Union[ModelInfo, Mapping[str, object]]
 
@@ -84,8 +85,11 @@ def get_history(
         raise ValueError("size must be greater than or equal to 1")
 
     normalised: List[ModelInfo] = [_normalise_record(record) for record in registry]
-    total = len(normalised)
-    start = (page - 1) * size
-    end = start + size
-    items = normalised[start:end]
-    return ModelHistory(page=page, size=size, total=total, items=items)
+    registry_helper = ModelRegistry(normalised)
+    paginated = registry_helper.paginate(page=page, size=size)
+    return ModelHistory(
+        page=paginated.page,
+        size=paginated.size,
+        total=paginated.total,
+        items=paginated.items,
+    )
