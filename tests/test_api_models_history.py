@@ -35,6 +35,17 @@ def test_get_history_paginates_records():
     assert [item.version for item in history.items] == ["model-2", "model-3"]
 
 
+def test_get_history_handles_out_of_range_page():
+    records = _build_records(4)
+
+    history = get_history(records, page=3, size=2)
+
+    assert history.page == 3
+    assert history.size == 2
+    assert history.total == 4
+    assert history.items == []
+
+
 def test_history_route_uses_pagination():
     pytest.importorskip("fastapi", reason="FastAPI not installed")
     from fastapi.testclient import TestClient
@@ -83,3 +94,15 @@ def test_model_registry_get_history_returns_metadata():
     assert page.size == 10
     assert page.total == len(records)
     assert page.items == list(range(10, 20))
+
+
+def test_model_registry_get_history_out_of_range_page():
+    records = list(range(5))
+    registry = ModelRegistry(records)
+
+    page = registry.get_history(page=3, size=3)
+
+    assert page.page == 3
+    assert page.size == 3
+    assert page.total == len(records)
+    assert page.items == []
