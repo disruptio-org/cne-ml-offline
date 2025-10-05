@@ -5,7 +5,7 @@ from typing import List
 
 import pytest
 
-from api.app.schemas.models import ModelInfo
+from api.app.schemas.models import ModelHistory, ModelInfo
 from api.app.services.models import get_history
 from ml.model_registry import ModelRegistry
 
@@ -22,6 +22,19 @@ def _build_records(count: int) -> List[ModelInfo]:
             )
         )
     return records
+
+
+def test_model_history_to_dict_includes_pagination_metadata():
+    items = _build_records(2)
+
+    history = ModelHistory(page=3, size=5, total=7, items=items)
+
+    payload = history.to_dict()
+
+    assert payload["page"] == 3
+    assert payload["size"] == 5
+    assert payload["total"] == 7
+    assert payload["items"] == [item.to_dict() for item in items]
 
 
 def test_get_history_paginates_records():
