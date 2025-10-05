@@ -27,6 +27,10 @@ def test_job_status_payload_includes_ocr_conf_mean(tmp_path):
         stats=stats,
     )
 
+    reloaded = storage.load(job_id)
+    assert reloaded.stats["ocr_conf_mean"] == stats["ocr_conf_mean"]
+    assert isinstance(reloaded.stats["ocr_conf_mean"], float)
+
     job_stats = build_job_stats(metadata)
     payload = JobStatus(
         job_id=metadata.job_id,

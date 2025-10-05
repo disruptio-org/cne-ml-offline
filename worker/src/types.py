@@ -22,6 +22,7 @@ class OCRPage:
     document_id: str
     page_number: int
     text: str
+    confidence: float = 1.0
 
 
 @dataclass

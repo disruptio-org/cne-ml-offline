@@ -28,11 +28,19 @@ def process_job(
     try:
         artifacts = renderer.render_documents(job_id, input_paths)
         pages = ocr_stub.run_ocr(job_id, artifacts)
+        ocr_conf_mean = None
+        if pages:
+            ocr_conf_mean = round(
+                sum(page.confidence for page in pages) / len(pages),
+                4,
+            )
         segments = segmenter.segment_pages(pages)
         raw_rows = extractor.extract_candidates(segments)
         normalized_rows = normalizer.normalize_rows(raw_rows)
         validated_rows = validator.validate_rows(normalized_rows)
-        summary = validator.summarise_validation(validated_rows)
+        summary = validator.summarise_validation(
+            validated_rows, ocr_conf_mean=ocr_conf_mean
+        )
 
         csv_path, _meta_path = writer.write_outputs(job_id, validated_rows, summary, base)
 
