@@ -1,0 +1,481 @@
+openapi: 3.0.3
+info:
+  title: CNE Lists Extraction POC API
+  description: >
+    API on-prem/offline para extração automática de listas (OCR/IA), geração de CSV,
+    revisão e aprovação com retreino incremental. Este contrato cobre **apenas** a interface,
+    sem considerações de segurança (POC).
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Servidor local (POC)
+tags:
+  - name: jobs
+    description: Ingestão e processamento de documentos
+  - name: preview
+    description: Visualização do resultado tabular
+  - name: export
+    description: Exportação do CSV final
+  - name: approvals
+    description: Aprovação de resultados e disparo de retreino
+  - name: masterdata
+    description: Tabelas de referência locais
+  - name: models
+    description: Gestão de versões e histórico de modelos
+  - name: ops
+    description: Operações e saúde do serviço
+
+paths:
+  /api/health:
+    get:
+      tags: [ops]
+      summary: Verifica o estado do serviço
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/jobs:
+    post:
+      tags: [jobs]
+      summary: Cria um job de processamento a partir de um ficheiro (PDF/DOCX/XLSX ou ZIP)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Ficheiro único (PDF/DOCX/XLSX) ou ZIP com múltiplos
+                infer_only:
+                  type: boolean
+                  description: Se true, não escrever CSV em disco até ser pedido explicitamente
+                  default: false
+      responses:
+        '201':
+          description: Job criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '415':
+          description: Tipo de ficheiro não suportado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/jobs/{job_id}:
+    get:
+      tags: [jobs]
+      summary: Obtém o estado e metadados de um job
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Estado atual do job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/jobs/{job_id}/preview:
+    get:
+      tags: [preview]
+      summary: Devolve a tabela JSON com as 10 colunas e flags de validação
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Pré-visualização tabular
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/jobs/{job_id}/csv:
+    get:
+      tags: [export]
+      summary: Descarrega o CSV final do job
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: CSV final
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: 'attachment; filename="listas_{job_id}.csv"'
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/jobs/{job_id}/approve:
+    post:
+      tags: [approvals]
+      summary: Aprova o resultado do job, move para dataset de treino e dispara retreino
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+                  description: Notas opcionais de aprovação
+      responses:
+        '202':
+          description: Aprovação registada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApproveResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Job não está pronto para aprovação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/master/orgao:
+    get:
+      tags: [masterdata]
+      summary: Lista de valores válidos para ORGAO (AM/CM/AF)
+      responses:
+        '200':
+          description: Lista de órgãos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  enum: [AM, CM, AF]
+
+  /api/master/siglas:
+    get:
+      tags: [masterdata]
+      summary: Lista de SIGLAs/coligações/GCE mapeadas
+      responses:
+        '200':
+          description: Lista de siglas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SiglaItem'
+
+  /api/master/dtmnfr:
+    get:
+      tags: [masterdata]
+      summary: Lista ou consulta de códigos DTMNFR
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Filtro textual opcional
+      responses:
+        '200':
+          description: Códigos DTMNFR
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DtmnfrItem'
+
+  /api/models/active:
+    get:
+      tags: [models]
+      summary: Versão ativa do modelo e métricas
+      responses:
+        '200':
+          description: Modelo ativo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelInfo'
+
+  /api/models/history:
+    get:
+      tags: [models]
+      summary: Histórico de treinos/versões
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Histórico de modelos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelHistory'
+
+  /api/models/train:
+    post:
+      tags: [models]
+      summary: Força um retreino manual (admin local)
+      responses:
+        '202':
+          description: Treino iniciado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainResponse'
+
+components:
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Identificador do job
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Página de paginação (preview/history)
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+      description: Tamanho da página (número de linhas/itens)
+
+  responses:
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Pedido inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        uptime_seconds:
+          type: number
+          format: float
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          oneOf:
+            - type: string
+            - type: object
+            - type: array
+              items: {}
+      required: [error]
+    JobCreated:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobState'
+      required: [job_id, status]
+    JobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+        state:
+          $ref: '#/components/schemas/JobState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        input_files:
+          type: array
+          items:
+            type: string
+        pages:
+          type: integer
+          nullable: true
+        stats:
+          type: object
+          nullable: true
+          properties:
+            rows_total:
+              type: integer
+            rows_ok:
+              type: integer
+            rows_warn:
+              type: integer
+            rows_err:
+              type: integer
+            ocr_conf_mean:
+              type: number
+              format: float
+      required: [job_id, state, created_at, updated_at]
+    JobState:
+      type: string
+      enum: [queued, processing, ready, approved, failed]
+    PreviewResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+        rows:
+          type: array
+          description: Linhas com 10 colunas e flags de validação por célula
+          items:
+            $ref: '#/components/schemas/PreviewRow'
+      required: [job_id, page, size, total, rows]
+    PreviewRow:
+      type: object
+      properties:
+        DTMNFR: { type: string }
+        ORGAO: { type: string, enum: [AM, CM, AF] }
+        TIPO:  { type: string, enum: ['2','3'] }
+        SIGLA: { type: string }
+        SIMBOLO: { type: string, nullable: true }
+        NOME_LISTA: { type: string, nullable: true }
+        NUM_ORDEM: { type: integer, minimum: 1 }
+        NOME_CANDIDATO: { type: string }
+        PARTIDO_PROPONENTE: { type: string, nullable: true }
+        INDEPENDENTE: { type: string, nullable: true, description: 'recomendado 0/1; vazio para GCE' }
+        __validation__:
+          type: object
+          description: Flags por célula (OK/AVISO/ERRO)
+          additionalProperties:
+            type: string
+            enum: [OK, AVISO, ERRO]
+      required:
+        - DTMNFR
+        - ORGAO
+        - TIPO
+        - SIGLA
+        - NUM_ORDEM
+        - NOME_CANDIDATO
+        - __validation__
+    ApproveResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          example: approved
+        dataset_path:
+          type: string
+          example: data/approved/2025-10-05/abc123
+      required: [job_id, status]
+    SiglaItem:
+      type: object
+      properties:
+        sigla:
+          type: string
+          example: PS
+        nome_lista:
+          type: string
+          nullable: true
+        tipo:
+          type: string
+          example: partido|coligacao|gce
+      required: [sigla, tipo]
+    DtmnfrItem:
+      type: object
+      properties:
+        code:
+          type: string
+          example: '150800'
+        label:
+          type: string
+          example: Odivelas
+      required: [code]
+    ModelInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          example: parser-v0.4.1
+        created_at:
+          type: string
+          format: date-time
+        metrics:
+          type: object
+          example:
+            f1_ner: 0.923
+            acc_fields: 0.985
+            cer: 0.032
+    ModelHistory:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelInfo'
+      required: [page, size, total, items]
+    TrainResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: started
+        run_id:
+          type: string
+          example: train-20251005-123456
