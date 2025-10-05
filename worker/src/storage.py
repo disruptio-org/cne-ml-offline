@@ -61,17 +61,17 @@ def _coerce_stats(raw: Dict[str, object]) -> Dict[str, Union[int, float, None]]:
             continue
         if isinstance(value, (int, float)):
             numeric = float(value)
+            original_type = type(value)
         else:
             try:
                 numeric = float(str(value))
             except (TypeError, ValueError):
                 continue
-        if key == "ocr_conf_mean":
-            stats[key] = float(numeric)
-        elif numeric.is_integer():
+            original_type = float
+        if original_type is int and numeric.is_integer():
             stats[key] = int(numeric)
         else:
-            stats[key] = numeric
+            stats[key] = float(numeric)
     return stats
 
 
