@@ -97,6 +97,41 @@ def test_history_route_uses_pagination():
     ]
 
 
+def test_history_route_uses_default_pagination():
+    pytest.importorskip("fastapi", reason="FastAPI not installed")
+    from fastapi.testclient import TestClient
+
+    from api.app.main import app
+    from api.app.routes import models as models_routes
+
+    records = [
+        {
+            "version": f"classifier-v{index}",
+            "created_at": datetime(2024, 2, 1 + index, tzinfo=timezone.utc).isoformat(),
+        }
+        for index in range(3)
+    ]
+
+    def override_registry():
+        return records
+
+    app.dependency_overrides[models_routes.get_registry] = override_registry
+    client = TestClient(app)
+    response = client.get("/api/models/history")
+    app.dependency_overrides.pop(models_routes.get_registry, None)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["page"] == 1
+    assert payload["size"] == 20
+    assert payload["total"] == len(records)
+    assert [item["version"] for item in payload["items"]] == [
+        "classifier-v0",
+        "classifier-v1",
+        "classifier-v2",
+    ]
+
+
 def test_model_registry_get_history_returns_metadata():
     records = list(range(25))
     registry = ModelRegistry(records)
