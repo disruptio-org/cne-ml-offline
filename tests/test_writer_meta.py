@@ -22,9 +22,9 @@ def make_row(**overrides):
     return CandidateRow(**defaults)
 
 
-def test_meta_file_includes_ocr_conf_mean(tmp_path):
+def test_meta_and_preview_include_ocr_conf_mean(tmp_path):
     rows = validate_rows([make_row(), make_row(SIGLA="XXX")])
-    summary = summarise_validation(rows)
+    summary = summarise_validation(rows, ocr_conf_mean=0.91)
 
     csv_path, meta_path = write_outputs("job1", rows, summary, tmp_path)
 
@@ -32,3 +32,9 @@ def test_meta_file_includes_ocr_conf_mean(tmp_path):
     data = json.loads(meta_path.read_text(encoding="utf-8"))
     assert "ocr_conf_mean" in data
     assert data["ocr_conf_mean"] == summary["ocr_conf_mean"]
+
+    preview_path = (tmp_path / "processed" / "job1" / "preview.json").resolve()
+    assert preview_path.exists()
+    preview_data = json.loads(preview_path.read_text(encoding="utf-8"))
+    assert "stats" in preview_data
+    assert preview_data["stats"]["ocr_conf_mean"] == summary["ocr_conf_mean"]

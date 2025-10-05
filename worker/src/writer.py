@@ -58,4 +58,23 @@ def write_outputs(
     if "ocr_conf_mean" in summary:
         payload["ocr_conf_mean"] = summary.get("ocr_conf_mean")
     meta_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    preview_path = processed_dir / "preview.json"
+    preview_payload: Dict[str, object]
+    if preview_path.exists():
+        try:
+            preview_payload = json.loads(preview_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            preview_payload = {}
+    else:
+        preview_payload = {}
+    stats_section = dict(preview_payload.get("stats", {}))  # type: ignore[arg-type]
+    for key in ("rows_total", "rows_ok", "rows_warn", "rows_err", "ocr_conf_mean"):
+        if key in summary:
+            stats_section[key] = summary.get(key)
+    preview_payload["stats"] = stats_section
+    preview_path.write_text(
+        json.dumps(preview_payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     return csv_path, meta_path
